@@ -1,7 +1,8 @@
-from typing import Literal
+from typing import Literal, List
 import scipp as sc
 import tof
 from trex.chopper import ChopperParameters, Chopper
+import scipp.constants as const
 
 
 class Instrument(object):
@@ -23,7 +24,7 @@ class Instrument(object):
         self.source = source
 
         self.bw_frequency, self.ps_frequency, self.m_frequency = (
-            self.get_chopper_frequency(source.frequency, rrm)
+            self.calculate_chopper_frequency(source.frequency, rrm)
         )
         self.choppers = [self.bw1, self.bw2, self.ps1, self.ps2, self.m1, self.m2]
         self.detectors = [
@@ -45,7 +46,7 @@ class Instrument(object):
         )
 
     @staticmethod
-    def get_chopper_frequency(source_frequency, rrm: int):
+    def calculate_chopper_frequency(source_frequency, rrm: int):
         """Get the frequencies of BW, PS and M-choppers. RRM needs to be multiples of 4
         Note:
             L_PS / L_M = 3/4"""
@@ -188,3 +189,68 @@ class Instrument(object):
     @property
     def model(self):
         return tof.Model(source=self.source, detectors=self.detectors, choppers=self.choppers)  # type: ignore
+
+    def calculate_delta_lambda(self) -> sc.Variable:
+        """Calculate step in wavelength selected by monochromatic choppers"""
+        h_over_mn = (const.Planck / const.m_n).to(unit="Å*m/s")  # 3956 Å*m/s
+        m_chopper_position = (self.m1.distance + self.m2.distance) / 2
+        delta_lambda = h_over_mn / self.m_frequency / m_chopper_position.to(unit="m")
+        return delta_lambda.to(unit="Å")
+
+    def calculate_bandwidth(
+        self,
+        source_time_range=(sc.scalar(0.2, unit="ms"), sc.scalar(3, unit="ms")),
+        source_wavelength_range=(sc.scalar(0.25, unit="Å"), sc.scalar(7.5, unit="Å")),
+    ):
+        """Calculate the bandwidth determined by the Bandwidth choppers"""
+
+        wavelength_min, wavelength_max = source_wavelength_range
+        time_min, time_max = source_time_range
+
+        open_times, close_times = self.bw1.open_close_times()
+        open_bw1, close_bw1 = open_times[0], close_times[0]
+        open_times, close_times = self.bw2.open_close_times()
+        open_bw2, close_bw2 = open_times[0], close_times[0]
+        wavelength_max = min(
+            wavelength_max,
+            tof.utils.speed_to_wavelength(
+                self.bw1.distance / (close_bw1 - time_min.to(unit="us"))
+            ),
+            tof.utils.speed_to_wavelength(
+                self.bw2.distance / (close_bw2 - time_min.to(unit="us"))
+            ),
+        )
+        wavelength_min = max(
+            wavelength_min,
+            tof.utils.speed_to_wavelength(
+                self.bw1.distance / (open_bw1 - time_max.to(unit="us"))
+            ),
+            tof.utils.speed_to_wavelength(
+                self.bw2.distance / (open_bw2 - time_max.to(unit="us"))
+            ),
+        )
+
+        return (wavelength_min, wavelength_max)
+
+    def calculate_incoming_wavelength(self, bandwidth=None) -> List[sc.Variable]:
+        bandwidth = self.calculate_bandwidth() if bandwidth is None else bandwidth
+        bw_min, bw_max = bandwidth
+        del_lambda = self.calculate_delta_lambda()
+        wavelength_list = [self.wavelength]
+        for i in range(1, int(self.rrm / 2 + 1)):
+            if (w_plus := self.wavelength + i * del_lambda) < bw_max:
+                wavelength_list.append(w_plus)
+            if (w_minus := self.wavelength - i * del_lambda) > bw_min:
+                wavelength_list.append(w_minus)
+        wavelength_list.sort()
+        return wavelength_list
+
+    # TODO
+    def calculate_incoming_energy(self, bandwidth=None) -> List[sc.Variable]:
+        wavelength_list = self.calculate_incoming_wavelength(bandwidth)
+        energy_list = []
+        for wavelength in wavelength_list:
+            speed = tof.utils.wavelength_to_speed(wavelength)
+            energy = tof.utils.speed_to_energy(speed) / 2  # TOF missed a factor of 2
+            energy_list.append(energy)
+        return energy_list
