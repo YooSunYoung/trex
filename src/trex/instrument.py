@@ -39,7 +39,9 @@ class Instrument(object):
         return (
             f"T-Rex running in {self.mode} mode, "
             + f"with cententral wavelength = {self.wavelength.value:.2f} Å, "
-            + f"RRM = {self.rrm}."
+            + f"RRM = {self.rrm}.\n"
+            + f"Pulse shaping chopper frequency = {self.ps1.frequency.value:3g} Hz, "
+            + f"Monochromatic chopper frequency = {self.m1.frequency.value:3g} Hz"
         )
 
     @staticmethod
