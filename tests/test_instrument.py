@@ -89,3 +89,18 @@ def test_calculate_incoming_energy():
     ei = trex.calculate_incoming_energy(bw)
     assert len(ei) == 7
     assert sc.allclose(ei[3], 13.08867 * sc.Unit("meV"))
+
+
+# #TODO
+# def test_calculate_toa_at():
+#     central_wavelength = sc.scalar(1, unit="Å")
+#     rrm: int = 8  # repetition rate multiplication factor
+#     T_OFFSET = sc.scalar(1.7, unit="ms")
+#     trex = Instrument(wavelength=central_wavelength, rrm=rrm, t_offset=T_OFFSET)
+
+#     toa = trex.calculate_toa_at("monitor_sample")
+#     assert sc.allclose(toa, 43105.1 * sc.Unit("us"))
+
+#     toa_rrm = trex.calculate_toa_at("monitor_sample", RRM=True)
+#     assert len(toa_rrm) == 7
+#     assert sc.allclose(toa_rrm[3], 43105.1 * sc.Unit("us"))
