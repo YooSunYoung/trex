@@ -1,4 +1,4 @@
-from typing import Literal, List
+from typing import Literal
 import scipp as sc
 
 import tof
@@ -15,7 +15,12 @@ class Instrument(object):
         t_offset=sc.scalar(0.0, unit="s"),
         source=tof.Source(facility="ess", neutrons=1_000_000, pulses=1),  # type: ignore
     ) -> None:
-        """Initialize instrument with central wavelength and repitition rate RRM"""
+        """Initialize instrument with central wavelength and repitition rate RRM
+
+        Attributes:
+            time_limit: time needed for the slowest incomnig beam out of the RRM to
+            propagate to detector position.
+        """
 
         self.wavelength = wavelength
         self.rrm: int = rrm
@@ -38,11 +43,14 @@ class Instrument(object):
         ]
 
         time_limit = self._calculate_time_limit(self.detector.distance)
-        self.chopper_cascade = {
-            k: v
-            for c in self.choppers
-            for k, v in c.to_chopper_cascade(time_limit).items()
-        }
+        self.chopper_cascade = sc.DataGroup(
+            {
+                k: v
+                for c in self.choppers
+                for k, v in c.to_chopper_cascade(time_limit).items()
+            }
+        )
+
         # DEL_L = sc.scalar(0.02, unit="m")  # Effective flight path uncertainty
 
     def __str__(self) -> str:
@@ -55,7 +63,7 @@ class Instrument(object):
         )
 
     def _calculate_time_limit(self, distance):
-        wavelength_max = max(self.calculate_incoming_wavelength())
+        wavelength_max = sc.max(self.calculate_incoming_wavelength())
         speed_min = tof.utils.wavelength_to_speed(wavelength_max)
         time_max = distance / speed_min
         return time_max
@@ -209,7 +217,9 @@ class Instrument(object):
 
     @property
     def model(self):
-        return tof.Model(source=self.source, detectors=self.detectors, choppers=self.choppers)  # type: ignore
+        return tof.Model(
+            source=self.source, detectors=self.detectors, choppers=self.choppers
+        )  # type: ignore
 
     def calculate_delta_lambda(self) -> sc.Variable:
         """Calculate step in wavelength selected by monochromatic choppers"""
@@ -266,12 +276,11 @@ class Instrument(object):
         wavelength_list.sort()
         return sc.array(dims=["wavelength"], values=wavelength_list, unit="Å")
 
-    # FIXME TOF missed a factor of 2, so I am dividing it
     def calculate_incoming_energy(self, bandwidth=None) -> sc.Variable:
         wavelength_array = self.calculate_incoming_wavelength(bandwidth)
 
         speed = tof.utils.wavelength_to_speed(wavelength_array)
-        energy = tof.utils.speed_to_energy(speed) / 2
+        energy = tof.utils.speed_to_energy(speed)
         energy_array = sc.array(dims=["energy"], values=energy.values, unit=energy.unit)
         return energy_array
 
@@ -287,32 +296,14 @@ class Instrument(object):
 
         distance = component.distance
         central_wavelength = self.wavelength
-        # delta_lambda = self.calculate_delta_lambda()
-        if RRM:
-            # n = int(self.rrm / 2)
-            # wavelength_array = sc.empty(
-            #     dims=["wavelength"], shape=[2 * n + 1], unit="Å"
-            # )
-            # for i in range(2 * n + 1):
-            #     wavelength_array[i] = central_wavelength + (i - n) * delta_lambda
-
-            # wavelength_min, wavelength_max = (
-            #     self.calculate_bandwidth()
-            #     if wavelength_range is None
-            #     else wavelength_range
-            # )
-
-            # wavelength_array = wavelength_array[
-            #     (wavelength_array > wavelength_min)
-            #     & (wavelength_array < wavelength_max)
-            # ]
-            wavelength_array = self.calculate_incoming_wavelength()
-
-        else:
-            wavelength_array = sc.array(
+        wavelength_array = (
+            self.calculate_incoming_wavelength(wavelength_range)
+            if RRM
+            else sc.array(
                 dims=["wavelength"], values=[central_wavelength.value], unit="Å"
             )
-
-        speed_array = tof.utils.wavelength_to_speed(wavelength_array)
-        toa_array = (distance / speed_array).to(unit="us") + self.t_offset.to(unit="us")
-        return sc.array(dims=["toa"], values=toa_array.values, unit=toa_array.unit)
+        )
+        speed = tof.utils.wavelength_to_speed(wavelength_array)
+        toa = (distance / speed).to(unit="us") + self.t_offset.to(unit="us")
+        toa_array = sc.array(dims=["toa"], values=toa.values, unit=toa.unit)
+        return toa_array

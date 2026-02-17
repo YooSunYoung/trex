@@ -10,6 +10,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "pip>=26.0.1",
+    "plopp",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "scipp>=26.2.0",
@@ -17,3 +18,7 @@ dependencies = [
     "scipy>=1.17.0",
     "tof>=26.1.0",
 ]
+
+[tool.uv.sources]
+tof = { git = "https://github.com/scipp/tof.git", rev = "main" }
+plopp = { git = "https://github.com/scipp/plopp.git", rev = "hover-bug" }

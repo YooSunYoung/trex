@@ -69,8 +69,8 @@ def test_calculate_incoming_wavelength():
     # default bandwidth range
     lambda_i = trex.calculate_incoming_wavelength()
     assert len(lambda_i) == 7
-    assert sc.allclose(min(lambda_i), 1.84589 * sc.Unit("Å"))
-    assert sc.allclose(max(lambda_i), 3.15411 * sc.Unit("Å"))
+    assert sc.allclose(sc.min(lambda_i), 1.84589 * sc.Unit("Å"))
+    assert sc.allclose(sc.max(lambda_i), 3.15411 * sc.Unit("Å"))
 
     # limit the bandwith
     lambda_i = trex.calculate_incoming_wavelength(
