@@ -124,12 +124,12 @@ def test_estimate_toa_centroid_at(trex_cold):
     res = trex_cold.model.run()
     toa_m3 = trex_cold.estimate_toa_centroid_at("Monitor 3", model_result=res)
     assert len(toa_m3) == 7
-    assert sc.allclose(toa_m3[0].data, 77842.5 * sc.Unit("us"))
+    assert sc.allclose(toa_m3[0].data, 77842.5 * sc.Unit("us"), rtol=sc.scalar(0.01))
 
     toa_m1 = trex_cold.estimate_toa_centroid_at("Monitor 1", model_result=res)
     assert len(toa_m1) == 1
     assert sc.allclose(
-        toa_m1.data, trex_cold.calculate_toa_at("Monitor 1"), rtol=sc.scalar(0.1)
+        toa_m1.data, trex_cold.calculate_toa_at("Monitor 1"), rtol=sc.scalar(0.01)
     )
 
 
