@@ -1,122 +1,103 @@
 import pytest
 import scipp as sc
-import tof
-from trex.chopper import Chopper, ChopperParameters
 import scipp.constants as const
 from scippneutron.tof import chopper_cascade
+from trex.chopper import Chopper
+from trex.instrument import Instrument
+from trex.params import chopper_params
 
 
-def test_create_bw_chopper(bw1_params):
-    bw1 = Chopper(bw1_params)
+def test_create_bw_chopper(trex):
+    bw1_params, *_ = chopper_params
+    bw1 = Chopper(bw1_params, instrument=trex)
     assert type(bw1) is Chopper
 
 
-def test_angle_offset(ps1_params, ps2_params):
+def test_angle_offset(trex):
+    _, _, ps1_params, ps2_params, _, _ = chopper_params
 
-    angle_offset = Chopper.get_angle_offset(ps1_params.centers, ps1_params.mode)
+    angle_offset = Chopper.get_angle_offset(ps1_params.centers, trex.chopper_mode)
     assert angle_offset == sc.scalar(-55.0, unit="deg")  # CCW
 
-    angle_offset = Chopper.get_angle_offset(ps2_params.centers, ps2_params.mode)
+    angle_offset = Chopper.get_angle_offset(ps2_params.centers, trex.chopper_mode)
     assert angle_offset == sc.scalar(-55.0, unit="deg")  # CW
 
     # making sure Chopper.get_phase do not change ChopperParameters.centers
-    p2 = Chopper(ps2_params)
-    angle_offset = p2.get_angle_offset(ps2_params.centers, ps2_params.mode)
+    p2 = Chopper(ps2_params, trex)
+    angle_offset = p2.get_angle_offset(ps2_params.centers, trex.chopper_mode)
     assert angle_offset == sc.scalar(-55.0, unit="deg")  # CW
 
 
-def test_open_close_times(bw1_params, ps1_params):
+def test_open_close_times(trex):
+    bw1_params, _, ps1_params, *_ = chopper_params
     mn_over_h = const.m_n / const.h
 
-    bw1 = Chopper(bw1_params)
+    bw1 = Chopper(bw1_params, trex)
     t_open, t_close = bw1.open_close_times()
-    t_center = mn_over_h * bw1.distance * bw1_params.wavelength.to(unit="m")
-    t_center += bw1_params.time_shift.to(unit="s")
+    t_center = mn_over_h * bw1.distance * trex.wavelength.to(unit="m")
+    t_center += trex.t_offset.to(unit="s")
     assert sc.allclose(t_center.to(unit="us"), ((t_open + t_close) / 2)[0])
 
-    ps1 = Chopper(ps1_params)
+    ps1 = Chopper(ps1_params, trex)
     t_open, t_close = ps1.open_close_times()
-    t_center = mn_over_h * ps1.distance * ps1_params.wavelength.to(unit="m")
-    t_center += ps1_params.time_shift.to(unit="s")
+    t_center = mn_over_h * ps1.distance * trex.wavelength.to(unit="m")
+    t_center += trex.t_offset.to(unit="s")
     assert sc.allclose(
-        t_center.to(unit="us"), ((t_open + t_close) / 2)[2]
-    )  # 2 for High Flux mode, 3 for High Resolutio mode
+        t_center.to(unit="us"), ((t_open + t_close) / 2)[-2]
+    )  # -2 for High Flux mode, 3 for High Resolutio mode
 
 
-def test_chopper_cascade(bw1_params):
-    bw1 = Chopper(bw1_params)
+def test_chopper_cascade(trex):
+    bw1_params, *_ = chopper_params
+    bw1 = Chopper(bw1_params, trex)
     bw1_chopper = bw1.to_chopper_cascade()
     assert type(bw1_chopper) is chopper_cascade.Chopper
 
 
-@pytest.fixture
-def bw1_params():
+def test_chopper_frequency(trex):
+    bw1_params, _, ps1_params, _, m1_params, _ = chopper_params
+    f_bw = Chopper(bw1_params, trex)._calculate_frequency(bw1_params)
+    f_ps = Chopper(ps1_params, trex)._calculate_frequency(ps1_params)
+    f_m = Chopper(m1_params, trex)._calculate_frequency(m1_params)
+    assert sc.allclose(f_bw, 14.0 * sc.Unit("Hz"))
+    assert sc.allclose(f_m, 14.0 * 4 * sc.Unit("Hz"))
+    assert sc.allclose(f_ps, 14.0 * 4 * 3 / 4 * sc.Unit("Hz"))
+
+
+def test_chopper_frequency_and_phase():
 
     T_OFFSET = sc.scalar(1.7, unit="ms")
     central_wavelength = sc.scalar(1.0, unit="Å")
-    frequency = sc.scalar(14.0, unit="Hz")
+    rrm: int = 12  # repetition rate multiplication factor
+    mode = "High Flux"  # Chopper mode
 
-    bw1_params = ChopperParameters(
-        name="Bandwidth Chopper 1",
-        wavelength=central_wavelength,
-        frequency=frequency,
-        distance=sc.scalar(31.964, unit="m"),  # Source to BW chopper 1,
-        centers=sc.array(dims=["cutouts"], values=(0.0,), unit="deg"),
-        widths=sc.array(dims=["cutouts"], values=(61.4,), unit="deg"),
-        time_shift=T_OFFSET,
-        direction=tof.AntiClockwise,
+    trex = Instrument(
+        wavelength=central_wavelength, rrm=rrm, mode=mode, t_offset=T_OFFSET
     )
+    bw1 = trex.choppers["Bandwidth Chopper 1"]
+    bw2 = trex.choppers["Bandwidth Chopper 2"]
 
-    return bw1_params
+    assert sc.allclose(bw1.frequency, 14.0 * sc.Unit("Hz"))
+    assert sc.allclose(bw1.phase, 49.2902 * sc.Unit("deg"))
+    assert sc.allclose(bw2.phase, 59.5116 * sc.Unit("deg"))
+
+    ps1 = trex.choppers["Pulse Shaping Chopper 1"]
+    ps2 = trex.choppers["Pulse Shaping Chopper 2"]
+    assert sc.allclose(ps1.frequency, 126.0 * sc.Unit("Hz"))
+    assert sc.allclose(ps1.phase, 179.8698 * sc.Unit("deg"))
+    assert sc.allclose(ps2.phase, 291.0164 * sc.Unit("deg"))
+
+    m1 = trex.choppers["Monochromatic Chopper 1"]
+    m2 = trex.choppers["Monochromatic Chopper 2"]
+    assert sc.allclose(m1.frequency, 168.0 * sc.Unit("Hz"))
+    assert sc.allclose(m1.phase, 64.4018 * sc.Unit("deg"))
+    assert sc.allclose(m2.phase, 234.5545 * sc.Unit("deg"))
 
 
 @pytest.fixture
-def ps1_params():
-
+def trex():
     T_OFFSET = sc.scalar(1.7, unit="ms")
     central_wavelength = sc.scalar(1.0, unit="Å")
-    frequency = sc.scalar(14.0, unit="Hz")
-
-    L_P1 = sc.scalar(107.95, unit="m")  # Distance to the P-chopper 1
-    THETA_POS_P = sc.array(dims=["cutouts"], values=(0, -55, -180, -235), unit="deg")
-    THETA_WIDTH_P = sc.array(dims=["cutouts"], values=(20, 35, 20, 35), unit="deg")
-
-    ps1_params = ChopperParameters(
-        name="Pulse Shapping Chopper 1",
-        wavelength=central_wavelength,
-        frequency=frequency,
-        distance=L_P1,
-        centers=THETA_POS_P,
-        widths=THETA_WIDTH_P,
-        time_shift=T_OFFSET,
-        mode="High Flux",
-        direction=tof.AntiClockwise,
-    )
-
-    return ps1_params
-
-
-@pytest.fixture
-def ps2_params():
-
-    T_OFFSET = sc.scalar(1.7, unit="ms")
-    central_wavelength = sc.scalar(1.0, unit="Å")
-    frequency = sc.scalar(14.0, unit="Hz")
-
-    L_P2 = sc.scalar(108.05, unit="m")  # Distance to the P-chopper 2
-    THETA_POS_P = sc.array(dims=["cutouts"], values=(0, -55, -180, -235), unit="deg")
-    THETA_WIDTH_P = sc.array(dims=["cutouts"], values=(20, 35, 20, 35), unit="deg")
-
-    ps2_params = ChopperParameters(
-        name="Pulse Shapping Chopper 2",
-        wavelength=central_wavelength,
-        frequency=frequency,
-        distance=L_P2,
-        centers=THETA_POS_P,
-        widths=THETA_WIDTH_P,
-        time_shift=T_OFFSET,
-        mode="High Flux",
-        direction=tof.Clockwise,
-    )
-
-    return ps2_params
+    rrm = 4
+    trex = Instrument(wavelength=central_wavelength, rrm=rrm, t_offset=T_OFFSET)
+    return trex

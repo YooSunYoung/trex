@@ -6,13 +6,13 @@ from trex.utils import calculate_variable_range_at
 
 if TYPE_CHECKING:
     from trex.instrument import Instrument
+    from trex.params import MonitorParameters
 
 
 class Monitor(tof.Detector):  # type: ignore
-    def __init__(self, instrument: "Instrument | None" = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if instrument is not None:
-            self.instrument = instrument
+    def __init__(self, parameters: "MonitorParameters", instrument: "Instrument"):
+        self.instrument = instrument
+        super().__init__(name=parameters.name, distance=parameters.distance)
 
     def calculate_bandwidth(self, unit="Å") -> Tuple[sc.Variable, sc.Variable]:
         """Calculate the bandwidth"""

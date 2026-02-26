@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import tof
 import scipp as sc
@@ -9,89 +8,111 @@ from scippneutron.tof import chopper_cascade
 
 if TYPE_CHECKING:
     from trex.instrument import Instrument
-
-
-@dataclass(frozen=True)
-class ChopperParameters:
-    """centers are defined using the side facing the incoming beam, CCW is positive"""
-
-    name: str
-    wavelength: sc.Variable
-    frequency: sc.Variable
-    distance: sc.Variable
-    centers: sc.Variable
-    widths: sc.Variable
-    time_shift: sc.Variable
-    direction: Literal[tof.AntiClockwise, tof.Clockwise]
-    mode: str | None = None
+    from trex.params import ChopperParameters
 
 
 class Chopper(tof.Chopper):  # type: ignore
-    def __init__(
-        self, parameters: ChopperParameters, instrument: "Instrument | None" = None
-    ):
+    def __init__(self, parameters: "ChopperParameters", instrument: "Instrument"):
 
-        angle_offset = self.get_angle_offset(parameters.centers, parameters.mode)
-        phase = self.get_phase(parameters, angle_offset)
+        self.instrument = instrument
+        frequency = self._calculate_frequency(parameters)
 
         super().__init__(
-            frequency=parameters.frequency,
+            frequency=frequency,
             centers=parameters.centers,
             widths=parameters.widths,
-            phase=phase,
+            phase=self._calculate_phase(parameters, frequency),
             direction=parameters.direction,
             distance=parameters.distance,
             name=parameters.name,
         )
-        if instrument is not None:
-            self.instrument = instrument
+
+    # ------------------------------------------------------------------
+    # Static helpers
+    # ------------------------------------------------------------------
 
     @staticmethod
     def get_angle_offset(centers: sc.Variable, mode: str | None):
-        """Get angle offset for the given mode, assuming the first set of slits are for
-        the 'High Resolution' mode, and the secend sets are for the 'High Flux' mode.
+        """Return angle offset for the given chopper mode.
+
+        - First slit set  → High Resolution
+        - Second slit set → High Flux
+        - CCW is positive
 
         Note:
-        Increasing values goes CCW.
-
-        Note:
-        scipp variables are mutable, use copy to avoid changing of centers when operating
-        on angle_offset
+        scipp variables are mutable, use copy to avoid changing of centers
+        when operating on angle_offset
 
         """
-        if mode is None:
-            angle_offset = centers[0].copy()
-        elif mode == "High Resolution":
-            angle_offset = centers[0].copy()
-        elif mode == "High Flux":
-            angle_offset = centers[1].copy()
-        else:
+        if mode not in (None, "High Resolution", "High Flux"):
             raise ValueError(
-                f"Unrecogonized mode={mode}. Needs to be 'High Resolution' or 'High Flux'."
+                f"Unrecognized mode={mode}. Expected 'High Resolution' or 'High Flux'."
             )
-        return angle_offset
 
-    @staticmethod
-    def get_phase(
-        parameters: ChopperParameters, angle_offset: sc.Variable
+        return centers[1 if mode == "High Flux" and len(centers) > 1 else 0].copy()
+
+    # ------------------------------------------------------------------
+    # Internal calculations
+    # ------------------------------------------------------------------
+
+    def _calculate_phase(
+        self, parameters: "ChopperParameters", frequency
     ) -> sc.Variable:
         """Positive time shift/ angle offset delays the time"""
+
+        angle_offset = self.get_angle_offset(
+            parameters.centers, self.instrument.chopper_mode
+        )
 
         h = const.Planck  # Planck constant in J.s
         mn = const.m_n  # Neutron mass in kg
         h_over_mn = (h / mn).to(unit="Å*m/s")  # 3956 Å*m/s
         two_pi = sc.scalar(360.0, unit="deg")
 
-        velocity = h_over_mn / parameters.wavelength.to(unit="Å")  # in m/s
-        time = parameters.distance.to(unit="m") / velocity + parameters.time_shift.to(
-            unit="s"
-        )
-        angle = time * parameters.frequency * two_pi
+        velocity = h_over_mn / self.instrument.wavelength.to(unit="Å")  # in m/s
+        time = parameters.distance.to(
+            unit="m"
+        ) / velocity + self.instrument.t_offset.to(unit="s")
+        angle = time * frequency * two_pi
 
         if parameters.direction == tof.Clockwise:
             angle_offset *= -1
 
         return (angle + angle_offset) % two_pi
+
+    def _calculate_frequency(self, parameters: "ChopperParameters"):
+        """Get the frequencies of BW, PS and M-choppers.
+        Note:
+            fP = L_M/L_PS * fM /2, L_PS / L_M = 3/4 for P choppers have two sets of slits.
+            P chopper can be further slowed down by deviding an integer. However the frequency
+            must be multiles of BW frequency (14 Hz for ESS). Therefore, RRM needs to be
+            multiples of 4.
+            RRM should be smaller than 24.
+        """
+        rrm = self.instrument.rrm
+        if rrm % 4 != 0:
+            raise ValueError(f"RRM = {rrm} needs to be multiples of 4.")
+
+        source_freq = self.instrument.source.frequency
+        match name := parameters.name:
+            case s if s.startswith("Bandwidth"):
+                freq = source_freq
+            case s if s.startswith("Pulse Shaping"):
+                freq = source_freq * rrm * 0.75 / 1
+            case s if s.startswith("Monochromatic"):
+                freq = source_freq * rrm
+            case _:
+                raise ValueError(f"Unrecognized chopper name: {name}")
+        if freq > parameters.frequency_max:
+            raise ValueError(
+                f"{name} frequency = {freq.value:.5g} Hz exceeds "
+                f"maximum {parameters.frequency_max.value:.5g} Hz"
+            )
+        return freq
+
+    # ------------------------------------------------------------------
+    # Class methods
+    # ------------------------------------------------------------------
 
     def open_close_times(self, *arg, **kwarg):
         return super().open_close_times(*arg, **kwarg)
