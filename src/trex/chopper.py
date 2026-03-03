@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-
+import tof
 import scipp as sc
 import scipp.constants as const
 from scippneutron.tof import chopper_cascade
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 class Chopper(DiskChopper):
+    distance: sc.Variable
 
     @classmethod
     def from_parameters(
@@ -41,6 +42,7 @@ class Chopper(DiskChopper):
             slit_height=parameters.slit_height,
             phase=phase,
         )
+        new_chopper.distance = parameters.axle_position.fields.z
 
         return new_chopper
 
@@ -52,7 +54,7 @@ class Chopper(DiskChopper):
     def get_angle_offset(
         centers: sc.Variable, beam_position: sc.Variable, mode: str | None
     ):
-        """Return angle offset for the given chopper mode.
+        """Return angle offset from beam position for the given chopper mode.
 
         - First slit set  → High Resolution
         - Second slit set → High Flux
@@ -88,12 +90,14 @@ class Chopper(DiskChopper):
         time = parameters.axle_position.fields.z.to(unit="m") / velocity + t_offset.to(
             unit="s"
         )
-        angle = time * sc.abs(frequency) * two_pi
+        angle = time * frequency * two_pi
 
-        if frequency < sc.scalar(0, unit="Hz"):  # Clockwise:
-            angle_offset *= -1
-
-        return (angle + angle_offset) % two_pi
+        phase = (angle + angle_offset) % two_pi
+        if phase > sc.scalar(180.0, unit="deg"):
+            # subtract 2 pi to avoid an issue of missing openings at
+            # small time in ToF
+            phase -= two_pi
+        return phase
 
     @staticmethod
     def _calculate_frequency(
@@ -140,9 +144,9 @@ class Chopper(DiskChopper):
     # ------------------------------------------------------------------
     # Class methods
     # ------------------------------------------------------------------
-    # FIXME
     def open_close_times(self, *arg, **kwarg):
-        return super().open_close_times(*arg, **kwarg)
+        tof_chopper = tof.Chopper.from_diskchopper(self)
+        return tof_chopper.open_close_times(*arg, **kwarg)
 
     def to_chopper_cascade(
         self, time_limit=sc.scalar(1, unit="s")

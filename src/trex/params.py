@@ -65,7 +65,7 @@ m1 = ChopperParameters(  # CCW
     name="Monochromatic Chopper 1",
     beam_position=sc.scalar(180.0, unit="deg"),
     axle_position=sc.vector((0, 0.325, 161.995), unit="m"),
-    slit_center=sc.array(dims=["cutouts"], values=(0, 185), unit="deg"),
+    slit_center=sc.array(dims=["cutouts"], values=(0, -175), unit="deg"),
     slit_width=sc.array(dims=["cutouts"], values=(2.5, 4.3), unit="deg"),
     slit_height=sc.scalar(0.045, unit="m"),
     frequency_max=sc.scalar(336, unit="Hz"),
@@ -74,7 +74,7 @@ m1 = ChopperParameters(  # CCW
 m2 = ChopperParameters(  # CW
     name="Monochromatic Chopper 2",
     axle_position=sc.vector((0, -0.325, 162.005), unit="m"),
-    slit_center=sc.array(dims=["cutouts"], values=(0, 185), unit="deg"),
+    slit_center=sc.array(dims=["cutouts"], values=(0, -175), unit="deg"),
     slit_width=sc.array(dims=["cutouts"], values=(2.5, 4.3), unit="deg"),
     slit_height=sc.scalar(0.045, unit="m"),
     frequency_max=sc.scalar(336, unit="Hz"),

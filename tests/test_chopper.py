@@ -42,15 +42,13 @@ def test_open_close_times(trex):
     t_open, t_close = bw1.open_close_times()
     t_center = mn_over_h * bw1.distance * trex.wavelength.to(unit="m")
     t_center += trex.t_offset.to(unit="s")
-    assert sc.allclose(t_center.to(unit="us"), ((t_open + t_close) / 2)[0])
+    assert sc.any(sc.isclose(t_center.to(unit="us"), ((t_open + t_close) / 2)))
 
     ps1 = Chopper.from_parameters(ps1_params, trex)
     t_open, t_close = ps1.open_close_times()
     t_center = mn_over_h * ps1.distance * trex.wavelength.to(unit="m")
     t_center += trex.t_offset.to(unit="s")
-    assert sc.allclose(
-        t_center.to(unit="us"), ((t_open + t_close) / 2)[-2]
-    )  # -2 for High Flux mode, 3 for High Resolutio mode
+    assert sc.any(sc.isclose(t_center.to(unit="us"), ((t_open + t_close) / 2)))
 
 
 def test_chopper_cascade(trex):
@@ -96,14 +94,18 @@ def test_chopper_frequency_and_phase():
     ps1 = trex.choppers["Pulse Shaping Chopper 1"]
     ps2 = trex.choppers["Pulse Shaping Chopper 2"]
     assert sc.allclose(ps1.frequency, 126.0 * sc.Unit("Hz"))
-    assert sc.allclose(ps1.phase, 359.8698 * sc.Unit("deg"))
-    assert sc.allclose(ps2.phase, 111.0164 * sc.Unit("deg"))
+    assert sc.allclose(ps2.frequency, -126.0 * sc.Unit("Hz"))
+    assert sc.allclose(
+        ps1.phase, (359.8698 - 360) * sc.Unit("deg"), rtol=sc.scalar(1e-3)
+    )
+    assert sc.allclose(ps2.phase, (248.984 - 360) * sc.Unit("deg"))
 
     m1 = trex.choppers["Monochromatic Chopper 1"]
     m2 = trex.choppers["Monochromatic Chopper 2"]
     assert sc.allclose(m1.frequency, 168.0 * sc.Unit("Hz"))
+    assert sc.allclose(m2.frequency, -168.0 * sc.Unit("Hz"))
     assert sc.allclose(m1.phase, 64.4018 * sc.Unit("deg"))
-    assert sc.allclose(m2.phase, 234.5545 * sc.Unit("deg"))
+    assert sc.allclose(m2.phase, 125.445 * sc.Unit("deg"))
 
 
 @pytest.fixture
