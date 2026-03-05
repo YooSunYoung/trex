@@ -4,6 +4,7 @@ import scipp as sc
 import scipp.constants as const
 from scippneutron.tof import chopper_cascade
 from scippneutron.chopper.disk_chopper import DiskChopper
+from trex.utils import calculate_frame_at
 
 if TYPE_CHECKING:
     from trex.instrument import Instrument
@@ -11,7 +12,9 @@ if TYPE_CHECKING:
 
 
 class Chopper(DiskChopper):
+    name: str
     distance: sc.Variable
+    instrument: "Instrument"
 
     @classmethod
     def from_parameters(
@@ -42,7 +45,9 @@ class Chopper(DiskChopper):
             slit_height=parameters.slit_height,
             phase=phase,
         )
+        new_chopper.name = parameters.name
         new_chopper.distance = parameters.axle_position.fields.z
+        new_chopper.instrument = instrument
 
         return new_chopper
 
@@ -157,3 +162,6 @@ class Chopper(DiskChopper):
             time_open=time_open,
             time_close=time_close,
         )
+
+    def calculate_frame(self) -> chopper_cascade.Frame:
+        return calculate_frame_at(self.name, instrument=self.instrument)

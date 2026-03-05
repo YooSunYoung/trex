@@ -48,7 +48,8 @@ def test_open_close_times(trex):
     t_open, t_close = ps1.open_close_times()
     t_center = mn_over_h * ps1.distance * trex.wavelength.to(unit="m")
     t_center += trex.t_offset.to(unit="s")
-    assert sc.any(sc.isclose(t_center.to(unit="us"), ((t_open + t_close) / 2)))
+    t_center -= (1 / ps1.frequency).to(unit="s")
+    assert sc.any(sc.isclose(t_center.to(unit="us"), (t_open + t_close) / 2))
 
 
 def test_chopper_cascade(trex):
@@ -70,8 +71,8 @@ def test_chopper_frequency(trex):
         m1_params, rrm=trex.rrm, source_frequency=trex.source.frequency
     )
     assert sc.allclose(f_bw, 14.0 * sc.Unit("Hz"))
-    assert sc.allclose(f_m, 14.0 * 4 * sc.Unit("Hz"))
-    assert sc.allclose(f_ps, 14.0 * 4 * 3 / 4 * sc.Unit("Hz"))
+    assert sc.allclose(f_m, 14.0 * trex.rrm * sc.Unit("Hz"))
+    assert sc.allclose(f_ps, 14.0 * trex.rrm * 3 / 4 * sc.Unit("Hz"))
 
 
 def test_chopper_frequency_and_phase():
@@ -108,10 +109,22 @@ def test_chopper_frequency_and_phase():
     assert sc.allclose(m2.phase, 125.445 * sc.Unit("deg"))
 
 
+def test_calculate_frame(trex):
+    bw1 = trex.choppers["Bandwidth Chopper 1"]
+    frame = bw1.calculate_frame()
+    assert len(frame.subframes) == 1
+
+    m2 = trex.choppers["Monochromatic Chopper 2"]
+    frame = m2.calculate_frame()
+    assert len(frame.subframes) == 7
+
+
 @pytest.fixture
 def trex():
     T_OFFSET = sc.scalar(1.7, unit="ms")
     central_wavelength = sc.scalar(1.0, unit="Å")
-    rrm = 4
-    trex = Instrument(wavelength=central_wavelength, rrm=rrm, t_offset=T_OFFSET)
+    rrm = 8
+    trex = Instrument(
+        wavelength=central_wavelength, rrm=rrm, mode="High Flux", t_offset=T_OFFSET
+    )
     return trex

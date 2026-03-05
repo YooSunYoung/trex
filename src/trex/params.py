@@ -128,3 +128,6 @@ mon_beamstop = MonitorParameters(
 # )
 
 monitor_params = [mon1, mon2, mon3, mon_sample, mon_beamstop]
+
+
+# DEL_L = sc.scalar(0.02, unit="m")  # Effective flight path uncertainty

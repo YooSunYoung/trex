@@ -1,28 +1,36 @@
 import pytest
 import scipp as sc
+from scippneutron.tof.chopper_cascade import FrameSequence
+
 from trex.instrument import Instrument
-from trex.utils import calculate_frame_at
+from trex.utils import calculate_frame_at, acceptance_paths
 
 
 def test_calculate_frame_at(trex):
     # choppers
-    frames_bw2 = calculate_frame_at("Bandwidth Chopper 2", trex)
-    assert frames_bw2.subbounds().sizes["subframe"] == 1
-    frames_ps2 = calculate_frame_at("Pulse Shaping Chopper 2", trex)
-    assert frames_ps2.subbounds().sizes["subframe"] == 7
-    frames_m2 = calculate_frame_at("Monochromatic Chopper 2", trex)
-    assert frames_m2.subbounds().sizes["subframe"] == 7
+    frame_bw2 = calculate_frame_at("Bandwidth Chopper 2", trex)
+    assert frame_bw2.subbounds().sizes["subframe"] == 1
+    frame_ps2 = calculate_frame_at("Pulse Shaping Chopper 2", trex)
+    assert frame_ps2.subbounds().sizes["subframe"] == 7
+    frame_m2 = calculate_frame_at("Monochromatic Chopper 2", trex)
+    assert frame_m2.subbounds().sizes["subframe"] == 7
     # monitors
-    frames_mon1 = calculate_frame_at("Monitor 1", trex)
-    assert frames_mon1.subbounds().sizes["subframe"] == 1
-    bw_min, bw_max = frames_mon1.subbounds()["subframe", 0]["wavelength"]
+    frame_mon1 = calculate_frame_at("Monitor 1", trex)
+    assert frame_mon1.subbounds().sizes["subframe"] == 1
+    bw_min, bw_max = frame_mon1.subbounds()["subframe", 0]["wavelength"]
     assert sc.allclose(bw_min, 1.6 * sc.Unit("Å"), rtol=sc.scalar(0.05))
     assert sc.allclose(bw_max, 3.2 * sc.Unit("Å"), rtol=sc.scalar(0.05))
 
-    frames_mon2 = calculate_frame_at("Monitor 2", trex)
-    assert frames_mon2.subbounds().sizes["subframe"] == 7
-    frames_mon3 = calculate_frame_at("Monitor 3", trex)
-    assert frames_mon3.subbounds().sizes["subframe"] == 7
+    frame_mon2 = calculate_frame_at("Monitor 2", trex)
+    assert frame_mon2.subbounds().sizes["subframe"] == 7
+    frame_mon3 = calculate_frame_at("Monitor 3", trex)
+    assert frame_mon3.subbounds().sizes["subframe"] == 7
+
+
+def test_acceptance_path(trex):
+    frame_m2 = calculate_frame_at("Monochromatic Chopper 2", trex)
+    subframe_vertexes = acceptance_paths(frame=frame_m2)
+    assert len(subframe_vertexes) == 7
 
 
 @pytest.fixture

@@ -33,13 +33,10 @@ class Instrument(object):
             for param in chopper_params
         }
 
-        monitors = [Monitor(param, self) for param in monitor_params]
-        self.monitors = {monitor.name: monitor for monitor in monitors}
+        self.monitors = {param.name: Monitor(param, self) for param in monitor_params}
 
         detectors = [self.detector]
         self.detectors = {detector.name: detector for detector in detectors}
-
-        # DEL_L = sc.scalar(0.02, unit="m")  # Effective flight path uncertainty
 
     def __str__(self) -> str:
         return (

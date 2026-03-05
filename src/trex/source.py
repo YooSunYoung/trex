@@ -16,17 +16,17 @@ class Source(tof.Source):  # type: ignore
         )
 
     @staticmethod
-    def calculate_range(data, number_of_sigma=1):
+    def calculate_range(data, number_of_sigma: float = 3.0):
         mean = sc.mean(data)
         std = sc.std(data, ddof=0)
         min_value = max(data.min(), mean - number_of_sigma * std)
         max_value = mean + number_of_sigma * std
         return (min_value, max_value)
 
-    def calculate_time_range(self):
+    def calculate_time_range(self, number_of_sigma=3.0):
         data = self.data.coords["birth_time"]
-        return self.calculate_range(data, number_of_sigma=3)
+        return self.calculate_range(data, number_of_sigma)
 
-    def calculate_wavelength_range(self):
+    def calculate_wavelength_range(self, number_of_sigma=1.5):
         data = self.data.coords["wavelength"]
-        return self.calculate_range(data, number_of_sigma=3)
+        return self.calculate_range(data, number_of_sigma)

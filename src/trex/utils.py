@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 import scipp as sc
-from scippneutron.tof import chopper_cascade
+from scippneutron.tof.chopper_cascade import FrameSequence, Frame
 from typing import Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,14 +16,15 @@ def centers_to_edges(centers, dim=None):
     return sc.concat([first, mid, last], dim=dim)
 
 
-def calculate_frame_at(component_name: str, instrument: "Instrument"):
+def calculate_frame_at(component_name: str, instrument: "Instrument") -> Frame:
+    """Get a Frame at the given chopper/monitor/detector"""
     source = instrument.source
     choppers = instrument.chopper_cascade
     component = instrument._validate_component(component_name)
     wavelength_min, wavelength_max = source.wavelength_range
     time_min, time_max = source.time_range
 
-    frames = chopper_cascade.FrameSequence.from_source_pulse(
+    frames = FrameSequence.from_source_pulse(
         time_min=time_min,
         time_max=time_max,
         wavelength_min=wavelength_min,
@@ -63,3 +65,26 @@ def calculate_variable_range_at(
         var_min = var_min.to(unit=unit)
         var_max = var_max.to(unit=unit)
     return (var_min, var_max)
+
+
+@dataclass
+class SubframeVertex:
+    distance: sc.Variable
+    time: sc.Variable
+    wavelength: sc.Variable
+
+
+def acceptance_paths(
+    frame: Frame, time_unit: str = "us", wavelength_unit: str = "Å"
+) -> list[SubframeVertex]:
+
+    subframe_paths = []
+    for subframe in frame.subframes:
+        vertex = SubframeVertex(
+            distance=frame.distance,
+            time=subframe.time.to(unit=time_unit, copy=False),
+            wavelength=subframe.wavelength.to(unit=wavelength_unit, copy=False),
+        )
+        subframe_paths.append(vertex)
+
+    return subframe_paths
