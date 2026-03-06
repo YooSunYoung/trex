@@ -1,6 +1,7 @@
 import pytest
 import scipp as sc
 from trex.instrument import Instrument
+from trex.source import Source
 
 
 def test_time_wavelength_tange(trex):
@@ -10,6 +11,16 @@ def test_time_wavelength_tange(trex):
     l_min, l_max = trex.source.calculate_wavelength_range(number_of_sigma=1.5)
     assert l_min > sc.scalar(0.0, unit="Å")
     assert l_max < sc.scalar(6, unit="Å")
+
+
+def test_apply_mask(trex):
+    mask = trex.mask_from_chopper("Monochromatic Chopper 2")
+
+    source = Source(facility="ess", neutrons=1_000_000)
+    num = source.data.shape[1]
+    source.apply_mask(mask)
+    num_masked = source.data.shape[1]
+    assert num_masked < num
 
 
 @pytest.fixture

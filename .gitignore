@@ -1,4 +1,6 @@
 *.pyc
+build/
+dist/
 uv.lock
 src/trex/egg-info/*.*
 

@@ -6,8 +6,10 @@ import tof
 from trex.source import Source
 from trex.chopper import Chopper
 from trex.monitor import Monitor
+from trex.detector import Detector
 import scipp.constants as const
-from trex.params import chopper_params, monitor_params
+from trex.params import chopper_params, monitor_params, detector_params
+from trex.utils import calculate_frame_at, acceptance_paths
 
 
 class Instrument(object):
@@ -32,11 +34,10 @@ class Instrument(object):
             param.name: Chopper.from_parameters(parameters=param, instrument=self)
             for param in chopper_params
         }
-
         self.monitors = {param.name: Monitor(param, self) for param in monitor_params}
-
-        detectors = [self.detector]
-        self.detectors = {detector.name: detector for detector in detectors}
+        self.detectors = {
+            param.name: Detector(param, self) for param in detector_params
+        }
 
     def __str__(self) -> str:
         return (
@@ -139,3 +140,8 @@ class Instrument(object):
         wavelength = self.estimate_incoming_wavelength(model_result)
         speed = tof.utils.wavelength_to_speed(wavelength)
         return tof.utils.speed_to_energy(speed).rename_dims({"wavelength": "energy"})
+
+    def mask_from_chopper(self, chopper_name: str = "Monochromatic Chopper 2"):
+        frame = calculate_frame_at(chopper_name, self)
+        mask_vortices = acceptance_paths(frame=frame)
+        return mask_vortices

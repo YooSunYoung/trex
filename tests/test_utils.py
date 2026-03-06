@@ -29,8 +29,8 @@ def test_calculate_frame_at(trex):
 
 def test_acceptance_path(trex):
     frame_m2 = calculate_frame_at("Monochromatic Chopper 2", trex)
-    subframe_vertexes = acceptance_paths(frame=frame_m2)
-    assert len(subframe_vertexes) == 7
+    subframe_vortices = acceptance_paths(frame=frame_m2)
+    assert len(subframe_vortices) == 7
 
 
 @pytest.fixture
