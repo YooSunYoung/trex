@@ -1,8 +1,8 @@
 import tof
 import scipp as sc
-from trex.utils import centers_to_edges
+from trex.components.utils import centers_to_edges
 from typing import Tuple, TYPE_CHECKING
-from trex.utils import calculate_variable_range_at
+from trex.components.utils import calculate_variable_range_at
 
 if TYPE_CHECKING:
     from tof.result import Result
@@ -57,7 +57,7 @@ class Monitor(tof.Detector):  # type: ignore
     def estimate_toa_centroid(self, model_result: "Result") -> sc.DataArray:
         """Returns scipp DataArry with TOA bin-edges"""
 
-        event = model_result[self.name].data.squeeze()
+        event = model_result[self.name].data.squeeze()  # type: ignore
         event_masked = event[~event.masks["blocked_by_others"]]
 
         toa_edges = self.calculate_toa_bin_edges()
@@ -69,7 +69,7 @@ class Monitor(tof.Detector):  # type: ignore
         return toa_centers
 
     def wrap_frame(self, model_result: "Result"):
-        model_result[self.name].data.coords["toa"] %= self.instrument.period
+        model_result[self.name].data.coords["toa"] %= self.instrument.period  # type: ignore
 
     def unwrap_frame(self, model_result: "Result", wavelength_lower_bound):
         period = self.instrument.period.to(unit="us")

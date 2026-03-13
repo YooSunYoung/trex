@@ -1,9 +1,8 @@
 import pytest
 import scipp as sc
-from scippneutron.tof.chopper_cascade import FrameSequence
 
 from trex.instrument import Instrument
-from trex.utils import calculate_frame_at, acceptance_paths
+from trex.components.utils import calculate_frame_at, acceptance_paths
 
 
 def test_calculate_frame_at(trex):

@@ -49,7 +49,7 @@ class Detector(tof.Detector):  # type: ignore
         return toa_det_bin_edges
 
     def toa_to_energy(
-        self, toa_bin_edges, model_result: "Result"
+        self, toa_bin_edges: sc.Variable, model_result: "Result"
     ) -> List[sc.DataArray]:
 
         instrument = self.instrument
@@ -62,7 +62,7 @@ class Detector(tof.Detector):  # type: ignore
         data = model_result[self.name].data["pulse", 0]
         data_sorted = sc.sort(data, key="toa")
         data_list = []
-        for i, ei_i in enumerate(energy_in):
+        for i, ei_i in enumerate(energy_in):  # type: ignore
             data_sel = data_sorted["toa", toa_bin_edges[i] : toa_bin_edges[i + 1]]
             time = data_sel.coords["toa"] - toa_sample[i]
             speed = sample_det_distance / time

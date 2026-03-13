@@ -3,13 +3,13 @@ import scipp as sc
 import numpy as np
 import tof
 
-from trex.source import Source
-from trex.chopper import Chopper
-from trex.monitor import Monitor
-from trex.detector import Detector
+from trex.components.source import Source
+from trex.components.chopper import Chopper
+from trex.components.monitor import Monitor
+from trex.components.detector import Detector
 import scipp.constants as const
 from trex.params import chopper_params, monitor_params, detector_params
-from trex.utils import calculate_frame_at, acceptance_paths
+from trex.components.utils import calculate_frame_at, acceptance_paths
 
 
 class Instrument(object):

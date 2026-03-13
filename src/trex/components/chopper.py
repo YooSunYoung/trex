@@ -4,7 +4,7 @@ import scipp as sc
 import scipp.constants as const
 from scippneutron.tof import chopper_cascade
 from scippneutron.chopper.disk_chopper import DiskChopper
-from trex.utils import calculate_frame_at
+from trex.components.utils import calculate_frame_at
 
 if TYPE_CHECKING:
     from trex.instrument import Instrument

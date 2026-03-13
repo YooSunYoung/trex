@@ -2,7 +2,7 @@ import pytest
 import scipp as sc
 import scipp.constants as const
 from scippneutron.tof import chopper_cascade
-from trex.chopper import Chopper
+from trex.components.chopper import Chopper
 from trex.instrument import Instrument
 from trex.params import chopper_params
 

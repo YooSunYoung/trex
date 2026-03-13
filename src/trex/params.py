@@ -121,16 +121,12 @@ mon_beamstop = MonitorParameters(
     distance=sc.scalar(166.8, unit="m"),
 )
 
-
-# detector = MonitorParameters(
-#     name="Detector",
-#     distance=sc.scalar(166.8, unit="m"),
-# )
-
 monitor_params = [mon1, mon2, mon3, mon_sample, mon_beamstop]
 
 
-# DEL_L = sc.scalar(0.02, unit="m")  # Effective flight path uncertainty
+# ------------------------------------------------------------------
+# Detectors
+# ------------------------------------------------------------------
 
 
 @dataclass()
@@ -144,6 +140,10 @@ detector = DetectorParameters(
     distance=sc.scalar(166.8, unit="m"),
 )
 
-detector_params = [
-    detector,
-]
+detector_params = [detector]
+
+# ------------------------------------------------------------------
+# Other parameters
+# ------------------------------------------------------------------
+
+# DEL_L = sc.scalar(0.02, unit="m")  # Effective flight path uncertainty

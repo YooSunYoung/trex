@@ -5,7 +5,6 @@ from typing import Optional, Tuple, TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from tof.result import Result
     from trex.instrument import Instrument
 
 
@@ -148,18 +147,3 @@ def get_points(
         .transpose()
     )
     return xy_stack.values
-
-
-# -----------------------------------------------------------------------
-# Frame reconstruction
-# -----------------------------------------------------------------------
-
-
-def reconstruct_frame_at(
-    component_name: str,
-    model_result: "Result",
-    wavelength_lower_bound,
-    distance,
-    period,
-):
-    pass
