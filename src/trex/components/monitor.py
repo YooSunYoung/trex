@@ -20,6 +20,7 @@ class Monitor(tof.Detector):  # type: ignore
         return calculate_variable_range_at(
             component_name=self.name,
             variable_name="wavelength",
+            rename_dims_to="rrm",
             unit=unit,
             instrument=self.instrument,
         )
@@ -29,7 +30,7 @@ class Monitor(tof.Detector):  # type: ignore
         return calculate_variable_range_at(
             component_name=self.name,
             variable_name="time",
-            rename_dims_to="toa",
+            rename_dims_to="rrm",
             unit=unit,
             instrument=self.instrument,
         )
@@ -57,7 +58,7 @@ class Monitor(tof.Detector):  # type: ignore
     def estimate_toa_centroid(self, model_result: "Result") -> sc.DataArray:
         """Returns scipp DataArry with TOA bin-edges"""
 
-        event = model_result[self.name].data.squeeze()  # type: ignore
+        event = model_result[self.name].data["pulse", 0]  # type: ignore
         event_masked = event[~event.masks["blocked_by_others"]]
 
         toa_edges = self.calculate_toa_bin_edges()
@@ -66,7 +67,7 @@ class Monitor(tof.Detector):  # type: ignore
             toa_binned.bins.data * toa_binned.bins.coords["toa"]
         ).bins.sum() / toa_binned.bins.sum()
 
-        return toa_centers
+        return toa_centers.rename_dims({"toa": "rrm"})
 
     def wrap_frame(self, model_result: "Result"):
         model_result[self.name].data.coords["toa"] %= self.instrument.period  # type: ignore

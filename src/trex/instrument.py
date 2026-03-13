@@ -137,12 +137,11 @@ class Instrument(object):
             bw[i] = idx * del_lambda
         return bw + self.wavelength
 
-    def calculate_incoming_energy(self) -> sc.Variable:
+    def calculate_ei(self) -> sc.Variable:
         wavelength_array = self.calculate_incoming_wavelength()
-
         speed = tof.utils.wavelength_to_speed(wavelength_array)
         energy = tof.utils.speed_to_energy(speed)
-        energy_array = sc.array(dims=["energy"], values=energy.values, unit=energy.unit)
+        energy_array = sc.array(dims=["rrm"], values=energy.values, unit=energy.unit)
         return energy_array
 
     # -----------------------------------------------------------------------
@@ -161,13 +160,13 @@ class Instrument(object):
         distance = mon_beamstop.distance - mon3.distance
         speed = distance / time
         wavelength = tof.utils.speed_to_wavelength(speed)
-        return wavelength.rename_dims({"toa": "wavelength"})
+        return wavelength
 
-    def estimate_incoming_energy(self, model_result: tof.result.Result) -> sc.DataArray:
+    def estimate_ei(self, model_result: tof.result.Result) -> sc.DataArray:
         """Estimate incomnig energy Ei from a simulation using ToF."""
         wavelength = self.estimate_incoming_wavelength(model_result)
         speed = tof.utils.wavelength_to_speed(wavelength)
-        return tof.utils.speed_to_energy(speed).rename_dims({"wavelength": "energy"})
+        return tof.utils.speed_to_energy(speed)
 
     def estimate_toa_at(
         self, component_name: str, model_result: tof.result.Result
@@ -180,7 +179,36 @@ class Instrument(object):
         speed = tof.utils.wavelength_to_speed(wavelength)
         component = self._validate_component(component_name)
         time = ((component.distance - m3.distance) / speed).to(unit=toa_m3.unit)
-        return toa_m3 + time.rename_dims({"wavelength": "toa"})
+        return toa_m3 + time
+
+    def estimate_qe_coverage(
+        self, model_result: tof.result.Result, ei_ef_ratio=0.0
+    ) -> Dict[str, sc.DataArray]:
+        wavelength = self.estimate_incoming_wavelength(model_result)
+        ei = self.estimate_ei(model_result)
+        ki = 2 * const.pi / wavelength
+        detector = self.detectors["Detector"]
+        toa_bin_edges = detector.unwrap_frame(model_result, ei_ef_ratio)
+        en_min, en_max = detector.energy_transfer_ranges(toa_bin_edges, model_result)
+
+        q = sc.linspace("momentum transfer", 0.0 * ki.unit, 2 * ki.max(), 200)
+        prefactor = const.hbar**2 / 2 / const.m_n
+        upper_bound = (prefactor * q * (2 * ki - q)).to(unit="meV")
+        lower_bound = sc.where(upper_bound > en_max, en_max, upper_bound)
+        lower_bound = (prefactor * q * (-2 * ki - q)).to(unit="meV")
+        lower_bound = sc.where(lower_bound < en_min, en_min, lower_bound)
+
+        coord = {"momentum transfer": sc.concat([q, q], dim="momentum transfer")}
+        return {
+            f"Ei = {ei_i.value:.3g} (meV)": sc.DataArray(
+                data=sc.concat(
+                    [lower_bound["rrm", i], upper_bound["rrm", i]],
+                    dim="momentum transfer",
+                ),  # type: ignore
+                coords=coord,
+            )
+            for i, ei_i in enumerate(ei)
+        }
 
     # -----------------------------------------------------------------------
     # class methods: mask

@@ -36,8 +36,8 @@ def test_calculate_incoming_wavelength_bounds(trex):
     assert len(lambda_i_bounds_high) == 7
 
 
-def test_calculate_incoming_energy(trex):
-    ei = trex.calculate_incoming_energy()
+def test_calculate_ei(trex):
+    ei = trex.calculate_ei()
     assert len(ei) == 7
     assert sc.allclose(ei[3], 13.0 * sc.Unit("meV"), rtol=sc.scalar(0.05))
 
@@ -49,10 +49,10 @@ def test_estimate_incoming_wavelength(trex):
     assert sc.allclose(lambda_in, lambda_expected, rtol=sc.scalar(0.1))
 
 
-def test_estimate_incoming_energy(trex):
+def test_estimate_ei(trex):
     res = trex.model.run()
-    ei = trex.estimate_incoming_energy(res)
-    ei_expected = trex.calculate_incoming_energy()
+    ei = trex.estimate_ei(res)
+    ei_expected = trex.calculate_ei()
     assert sc.allclose(ei, ei_expected, rtol=sc.scalar(0.1))
 
 
@@ -76,6 +76,12 @@ def test_wrap_unwrap_frame(trex):
     trex.unwrap_frame(res)
     assert res["Monitor 3"].data.coords["toa"].max() > trex.period
     assert res["Detector"].data.coords["toa"].max() > trex.period
+
+
+def test_estimate_qe_coverage(trex):
+    res = trex.model.run()
+    bounds = trex.estimate_qe_coverage(res, ei_ef_ratio=0.2)
+    assert len(bounds) == 7
 
 
 @pytest.fixture
