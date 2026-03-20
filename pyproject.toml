@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drtrex"
-version = "0.1.0"
+version = "0.1.1"
 description = "Data reduction for T-Rex at ESS"
 readme = "README.md"
 authors = [{ name = "Bing Li", email = "bing.li@ess.eu" }]
