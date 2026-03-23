@@ -1,4 +1,4 @@
-from typing import Literal, Dict, Tuple, List, Optional
+from typing import Literal, Dict, Tuple, List, Optional, TYPE_CHECKING
 import scipp as sc
 import numpy as np
 import tof
@@ -6,6 +6,9 @@ import scipp.constants as const
 from drtrex.components import Source, Chopper, Monitor, Detector
 from drtrex.components.utils import calculate_frame_at, acceptance_paths
 from drtrex.params import chopper_params, monitor_params, detector_params
+
+if TYPE_CHECKING:
+    from drtrex.components.utils import SubframeVortex
 
 
 class Instrument(object):
@@ -227,10 +230,26 @@ class Instrument(object):
     # class methods: mask
     # -----------------------------------------------------------------------
 
-    def mask_from_choppers(self, last_chopper_name: str = "Monochromatic Chopper 2"):
+    def mask_from_choppers(
+        self, last_chopper_name: str = "Monochromatic Chopper 2"
+    ) -> List["SubframeVortex"]:
         frame = calculate_frame_at(last_chopper_name, self)
         mask_vortices = acceptance_paths(frame=frame)
         return mask_vortices
+
+    def estimate_flux(self) -> sc.Variable:
+        """Return the counts per sub-pulse"""
+        mask = self.mask_from_choppers()
+        self.source.apply_mask(mask)
+        wav_min, wav_max = self.calculate_incoming_wavelength_bounds()
+        wav_data = self.source.data.coords["wavelength"]
+        rrm = wav_min.size
+        flux = sc.empty(dims=["rrm"], shape=[rrm], dtype="int64", unit=None)
+        for i in range(rrm):
+            mask = (wav_data >= wav_min[i]) & (wav_data <= wav_max[i])
+            flux[i] = sc.sum(mask)
+        flux.unit = "counts"
+        return flux
 
     # -----------------------------------------------------------------------
     # class methods: wrap/unwrap frame

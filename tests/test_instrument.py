@@ -91,6 +91,11 @@ def test_run(trex):
     assert "test sample" in str(res)
 
 
+def test_estimate_flux(trex):
+    flux = trex.estimate_flux()
+    assert sc.sum(trex.source.data).data == sc.sum(flux)
+
+
 @pytest.fixture
 def trex():
     central_wavelength = sc.scalar(2.5, unit="Å")
